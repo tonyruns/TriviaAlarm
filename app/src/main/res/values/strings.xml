@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">TriviaAlarm</string>
+
+    <string name="dummy_button">swag</string>
+    <string name="dummy_content">10 MIN APP\nTOO EASY</string>
+</resources>
