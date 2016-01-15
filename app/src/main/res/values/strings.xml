@@ -3,4 +3,6 @@
 
     <string name="dummy_button">swag</string>
     <string name="dummy_content">10 MIN APP\nTOO EASY</string>
+
+    <string name="title_activity_create_alarm">CreateAlarmActivity</string>
 </resources>

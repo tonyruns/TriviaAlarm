@@ -8,19 +8,12 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.MotionEvent;
 import android.view.View;
-import android.support.design.widget.FloatingActionButton;
-
-import com.tonyruns.triviaalarm.model.DbHelper;
 
 /**
  * An example full-screen activity that shows and hides the system UI (i.e.
  * status bar and navigation/system bar) with user interaction.
  */
-public class HomeScreenActivity extends AppCompatActivity {
-
-    FloatingActionButton addAlarmButton;
-    DbHelper mydb;
-
+public class CreateAlarmActivity extends AppCompatActivity {
     /**
      * Whether or not the system UI should be auto-hidden after
      * {@link #AUTO_HIDE_DELAY_MILLIS} milliseconds.
@@ -66,7 +59,7 @@ public class HomeScreenActivity extends AppCompatActivity {
             if (actionBar != null) {
                 actionBar.show();
             }
-            //mControlsView.setVisibility(View.VISIBLE);
+            mControlsView.setVisibility(View.VISIBLE);
         }
     };
     private boolean mVisible;
@@ -95,32 +88,31 @@ public class HomeScreenActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.activity_home_screen);
+        setContentView(R.layout.activity_create_alarm);
 
         mVisible = true;
-       // mControlsView = findViewById(R.id.fullscreen_content_controls);
+        mControlsView = findViewById(R.id.fullscreen_content_controls);
         mContentView = findViewById(R.id.fullscreen_content);
 
 
-        addAlarmButton = (FloatingActionButton) findViewById(R.id.add_alarm);
-        addAlarmButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                addAlarm();
+        // Set up the user interaction to manually show or hide the system UI.
+        mContentView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                toggle();
             }
         });
-
-        // Set up the user interaction to manually show or hide the system UI.
-//       // mContentView.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                toggle();
-//            }
-//        });
 
         // Upon interacting with UI controls, delay any scheduled hide()
         // operations to prevent the jarring behavior of controls going away
         // while interacting with the UI.
-        findViewById(R.id.add_alarm).setOnTouchListener(mDelayHideTouchListener);
+        //findViewById(R.id.dummy_button).setOnTouchListener(mDelayHideTouchListener);
+        findViewById(R.id.dummy_button).setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view){
+                saveAlarm(view);
+            }
+        });
     }
 
     @Override
@@ -147,7 +139,7 @@ public class HomeScreenActivity extends AppCompatActivity {
         if (actionBar != null) {
             actionBar.hide();
         }
-//        mControlsView.setVisibility(View.GONE);
+        mControlsView.setVisibility(View.GONE);
         mVisible = false;
 
         // Schedule a runnable to remove the status and navigation bar after a delay
@@ -176,8 +168,55 @@ public class HomeScreenActivity extends AppCompatActivity {
         mHideHandler.postDelayed(mHideRunnable, delayMillis);
     }
 
-    private void addAlarm(){
-        Intent i = new Intent(HomeScreenActivity.this,CreateAlarmActivity.class);
-        startActivity(i);
+    private void createAlarm(View View){
+        if (!validate()) return;
+
+        Alarm alarm = new Alarm();
+        alarm.setName(msgEdit.getText().toString());
+        alarm.setSound(soundCb.isChecked());
+        AlarmTime alarmTime = new AlarmTime();
+        long alarmId = 0;
+
+        switch(vs.getDisplayedChild()) {
+            case 0: //one time
+                alarm.setFromDate(DbHelper.getDateStr(datePicker.getYear(), datePicker.getMonth()+1, datePicker.getDayOfMonth()));
+                alarmId = alarm.persist(db);
+
+                alarmTime.setAt(DbHelper.getTimeStr(timePicker.getCurrentHour(), timePicker.getCurrentMinute()));
+                alarmTime.setAlarmId(alarmId);
+                alarmTime.persist(db);
+                break;
+
+            case 1: //repeating
+                alarm.setFromDate(Util.toPersistentDate(fromdateText.getText().toString(), sdf));
+                alarm.setToDate(Util.toPersistentDate(todateText.getText().toString(), sdf));
+                switch(rg.getCheckedRadioButtonId()) {
+                    case R.id.radio0: //rule
+                        alarm.setRule(Util.concat(spinner1.getSelectedItemPosition(), " ",
+                                spinner2.getSelectedItemPosition(), " ",
+                                spinner3.getSelectedItemPosition()));
+                        break;
+                    case R.id.radio1: //interval
+                        alarm.setInterval(Util.concat(minsEdit.getText(), " ",
+                                hoursEdit.getText(), " ",
+                                daysEdit.getText(), " ",
+                                monthsEdit.getText(), " ",
+                                yearsEdit.getText()));
+                        break;
+                }
+                alarmId = alarm.persist(db);
+
+                alarmTime.setAt(Util.toPersistentTime(attimeText.getText().toString()));
+                alarmTime.setAlarmId(alarmId);
+                alarmTime.persist(db);
+                break;
+        }
+
+        Intent service = new Intent(this, AlarmService.class);
+        service.putExtra(AlarmMsg.COL_ALARMID, String.valueOf(alarmId));
+        service.setAction(AlarmService.POPULATE);
+        startService(service);
+
+        finish();
     }
 }
